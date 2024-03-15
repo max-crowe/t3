@@ -1,5 +1,5 @@
 package t3
 
 fun main() {
-    Game().run()
+    Game(ComputerStrategy.ALGORITHM).run()
 }

@@ -1,6 +1,7 @@
 package t3
 
 class UnplayableSpaceException(message: String?) : IllegalArgumentException(message)
+class UnwinnablePossibilityException(message: String?): RuntimeException(message)
 
 private fun generateSpaces(): List<List<Space>> {
     var position = 0
@@ -68,6 +69,7 @@ class Board {
     val spaces = generateSpaces()
     var winner = Player.NONE
         private set
+    private var unplayedSpaceCount = 9
 
     override fun toString(): String {
         return getReadableLayout(spaces)
@@ -89,7 +91,7 @@ class Board {
                     winner = observedPlayer
                 }
             }
-            // Diagonal
+            // Vertical
             if (winner == Player.NONE) {
                 for (idx in 0..2) {
                     if (spaces[idx][coordinate.column].player != observedPlayer) {
@@ -102,11 +104,10 @@ class Board {
             }
             // Only necessary to check for diagonals if certain spaces are played
             if (winner == Player.NONE && (
-                        (coordinate.row == 1 && coordinate.column == 1) || (
-                                coordinate.row != 1 && coordinate.column != 1
-                                )
-                        )
-            ) {
+                (coordinate.row == 1 && coordinate.column == 1) || (
+                    coordinate.row != 1 && coordinate.column != 1
+                )
+            )) {
                 // Diagonal from top left
                 for (idx in 0..2) {
                     if (spaces[idx][idx].player != observedPlayer) {
@@ -132,6 +133,17 @@ class Board {
         return winner != Player.NONE
     }
 
+    private fun addSpaceToWinPossibility(
+        player: Player, wayToWin: MutableList<Space>, coordinate: Coordinate
+    ) {
+        val space = spaces[coordinate.row][coordinate.column]
+        if (space.player == Player.NONE) {
+            wayToWin.add(space)
+        } else if (space.player != player) {
+            throw UnwinnablePossibilityException("Player blocked from winning here")
+        }
+    }
+
     fun canPlay(coordinate: Coordinate): Boolean {
         return spaces[coordinate.row][coordinate.column].player == Player.NONE
     }
@@ -145,6 +157,7 @@ class Board {
             throw UnplayableSpaceException("You cannot replay that space")
         }
         spaces[coordinate.row][coordinate.column].player = player
+        unplayedSpaceCount--
         return checkForWin(coordinate)
     }
 
@@ -158,5 +171,69 @@ class Board {
                 yieldAll(spaces[rowIdx].filter { it.player == Player.NONE })
             }
         }
+    }
+
+    fun hasUnplacedSpaces(): Boolean {
+        return unplayedSpaceCount > 0
+    }
+
+    fun getWaysToWin(player: Player): List<List<Space>> {
+        val waysToWin = mutableListOf<List<Space>>()
+        var wayToWin: MutableList<Space>
+        // Horizontal
+        for (rowIdx in 0..2) {
+            wayToWin = mutableListOf()
+            try {
+                for (colIdx in 0..2) {
+                    addSpaceToWinPossibility(
+                        player, wayToWin, Coordinate(rowIdx, colIdx)
+                    )
+                }
+                if (wayToWin.count() > 0) {
+                    waysToWin.add(wayToWin)
+                }
+            } catch (_: UnwinnablePossibilityException) {}
+        }
+        // Vertical
+        for (colIdx in 0..2) {
+            wayToWin = mutableListOf()
+            try {
+                for (rowIdx in 0..2) {
+                    addSpaceToWinPossibility(
+                        player, wayToWin, Coordinate(rowIdx, colIdx)
+                    )
+                }
+                if (wayToWin.count() > 0) {
+                    waysToWin.add(wayToWin)
+                }
+            } catch (_: UnwinnablePossibilityException) {}
+        }
+        // Diagonal from top left
+        try {
+            wayToWin = mutableListOf()
+            for (idx in 0..2) {
+                addSpaceToWinPossibility(
+                    player, wayToWin, Coordinate(idx, idx)
+                )
+            }
+            if (wayToWin.count() > 0) {
+                waysToWin.add(wayToWin)
+            }
+        } catch (_: UnwinnablePossibilityException) {}
+        // Diagonal from bottom left
+        try {
+            wayToWin = mutableListOf()
+            for (idx in 0..2) {
+                addSpaceToWinPossibility(
+                    player, wayToWin, Coordinate(2 - idx, idx)
+                )
+            }
+            if (wayToWin.count() > 0) {
+                waysToWin.add(wayToWin)
+            }
+        } catch (_: UnwinnablePossibilityException) {}
+        // Prioritize by length
+        waysToWin.sortBy { it.count() }
+        return waysToWin
     }
 }

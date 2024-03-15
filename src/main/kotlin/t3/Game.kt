@@ -1,11 +1,11 @@
 package t3
 
-import java.lang.Exception
-import java.util.Scanner
+enum class ComputerStrategy {
+    RANDOM, ALGORITHM
+}
 
-class Game {
+class Game(val computerStrategy: ComputerStrategy) {
     private var board = Board()
-    private val scanner = Scanner(System.`in`)
 
     private fun printWelcomeMessage() {
         println(
@@ -34,8 +34,27 @@ class Game {
     }
 
     private fun makeComputerPlay(): Boolean {
-        val unplayedSpaces = board.getUnplayedSpaces().shuffled()
-        return board.play(Player.COMPUTER, unplayedSpaces.first().id)
+        val waysToWin = board.getWaysToWin(Player.COMPUTER)
+        if (computerStrategy == ComputerStrategy.RANDOM || waysToWin.count() == 0) {
+            val unplayedSpaces = board.getUnplayedSpaces()
+            if (unplayedSpaces.count() == 0) {
+                return false
+            }
+            return board.play(Player.COMPUTER, unplayedSpaces.shuffled().first().id)
+        }
+        val opponentWaysToWin = board.getWaysToWin(Player.USER)
+        val shortestWinPath = waysToWin.get(0).count()
+        val cohortWinPaths = waysToWin.filter { it.count() == shortestWinPath }
+        var intersection: Set<Space>
+        for (winPath in cohortWinPaths) {
+            for (opponentWinPath in opponentWaysToWin) {
+                intersection = winPath.intersect(opponentWinPath)
+                if (intersection.any()) {
+                    return board.play(Player.COMPUTER, intersection.first().id)
+                }
+            }
+        }
+        return board.play(Player.COMPUTER, waysToWin.get(0).get(0).id)
     }
 
     private fun promptForReplay() {
@@ -44,24 +63,22 @@ class Game {
 
     private fun replayRequested(): Boolean {
         promptForReplay()
-        val choice = getReplayChoice()
-        if (choice) {
-            board = Board()
-        }
-        return choice
+        return getReplayChoice()
     }
 
     private fun getSpaceChoice(): Int {
         while (true) {
-            val userInput = scanner.nextLine()
-            try {
-                val spaceId = userInput.toInt()
-                if (board.canPlay(spaceId)) {
-                    return spaceId
+            val userInput = readlnOrNull()
+            if (userInput != null && userInput.length > 0) {
+                try {
+                    val spaceId = userInput.toInt()
+                    if (board.canPlay(spaceId)) {
+                        return spaceId
+                    }
+                    print("Space ${spaceId} has already been played; try again. ")
+                } catch (_: Throwable) {
+                    print("${userInput} isn't a playable space; try again. ")
                 }
-                print("Space ${spaceId} has already been played; try again. ")
-            } catch (_: Exception) {
-                print("${userInput} isn't a number; try again. ")
             }
             promptForPlay()
         }
@@ -69,7 +86,7 @@ class Game {
 
     private fun getReplayChoice(): Boolean {
         while (true) {
-            val userInput = scanner.nextLine().lowercase()
+            val userInput = readlnOrNull()
             if (userInput == "y") {
                 return true
             }
@@ -84,12 +101,18 @@ class Game {
     fun run() {
         printWelcomeMessage()
         do {
-            while (board.winner == Player.NONE) {
+            // Reset board if this is a replay
+            if (board.winner != Player.NONE) {
+                board = Board()
+            }
+            while (board.winner == Player.NONE && board.hasUnplacedSpaces()) {
                 printBoardAndPrompt()
                 if (makeUserPlay()) {
                     print("${board}\n\nYou did it! I'm so proud of you. ")
                 } else if (makeComputerPlay()) {
                     print("${board}\n\nBad news, computer wins. How could you let this happen? ")
+                } else if (!board.hasUnplacedSpaces()) {
+                    print("${board}\n\nIt's a draw! ")
                 }
             }
         } while (replayRequested())

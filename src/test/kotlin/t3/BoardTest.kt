@@ -153,6 +153,21 @@ class BoardTest {
     }
 
     @Test
+    fun `finds draw`() {
+        val board = Board()
+        assertFalse(board.play(Player.USER, Coordinate(0, 0)))
+        assertFalse(board.play(Player.COMPUTER, Coordinate(0, 1)))
+        assertFalse(board.play(Player.USER, Coordinate(1, 2)))
+        assertFalse(board.play(Player.COMPUTER, Coordinate(2, 2)))
+        assertFalse(board.play(Player.USER, Coordinate(2, 1)))
+        assertFalse(board.play(Player.COMPUTER, Coordinate(1, 1)))
+        assertFalse(board.play(Player.USER, Coordinate(0, 2)))
+        assertFalse(board.play(Player.COMPUTER, Coordinate(2, 0)))
+        assertFalse(board.play(Player.USER, Coordinate(1, 0)))
+        assertFalse(board.hasUnplacedSpaces())
+    }
+
+    @Test
     fun `throws exception on attempt to replay space`() {
         val board = Board()
         board.play(Player.COMPUTER, Coordinate(0, 1))
@@ -164,17 +179,17 @@ class BoardTest {
     @Test
     fun `finds unplayed spaces`() {
         val board = Board()
-        var unplayedSpaces: Sequence<Space>
+        var unplayedSpacesById: Sequence<Int>
         assertEquals(9, board.getUnplayedSpaces().count())
         board.play(Player.COMPUTER, 1)
-        unplayedSpaces = board.getUnplayedSpaces()
-        assertEquals(8, unplayedSpaces.count())
-        assertFalse(unplayedSpaces.map { it.id }.contains(1))
+        unplayedSpacesById = board.getUnplayedSpaces().map { it.id }
+        assertEquals(8, unplayedSpacesById.count())
+        assertFalse(unplayedSpacesById.contains(1))
         board.play(Player.USER, 8)
-        unplayedSpaces = board.getUnplayedSpaces()
-        assertEquals(7, unplayedSpaces.count())
-        assertFalse(unplayedSpaces.map { it.id }.contains(1))
-        assertFalse(unplayedSpaces.map { it.id }.contains(8))
+        unplayedSpacesById = board.getUnplayedSpaces().map { it.id }
+        assertEquals(7, unplayedSpacesById.count())
+        assertFalse(unplayedSpacesById.contains(1))
+        assertFalse(unplayedSpacesById.contains(8))
     }
 
     @Test
@@ -198,5 +213,41 @@ class BoardTest {
         val board = Board()
         board.play(Player.USER, 4)
         assertFalse(board.canPlay(Coordinate(1, 0)))
+    }
+
+    @Test
+    fun `all win possibilities found on empty board`() {
+        assertEquals(8, Board().getWaysToWin(Player.USER).count())
+    }
+
+    @Test
+    fun `win possibilities prioritized when board has one play`() {
+        val board = Board()
+        board.play(Player.USER, 1)
+        val waysToWinById = board.getWaysToWin(Player.USER).map {
+            it.map { it.id }
+        }
+        assertEquals(8, waysToWinById.count())
+        assertEquals(listOf(2, 3), waysToWinById.get(0))
+        assertEquals(listOf(4, 7), waysToWinById.get(1))
+    }
+
+    @Test
+    fun `appropriate win possibilities excluded when board has plays from both players`() {
+        val board = Board()
+        board.play(Player.USER, 1)
+        board.play(Player.COMPUTER, 3)
+        var waysToWinById = board.getWaysToWin(Player.USER).map {
+            it.map { it.id }
+        }
+        assertEquals(5, waysToWinById.count())
+        assertFalse(waysToWinById.contains(listOf(2, 3)))
+        assertEquals(listOf(4, 7), waysToWinById.get(0))
+        waysToWinById = board.getWaysToWin(Player.COMPUTER).map {
+            it.map { it.id }
+        }
+        assertEquals(5, waysToWinById.count())
+        assertFalse(waysToWinById.contains(listOf(1, 2)))
+        assertEquals(listOf(6, 9), waysToWinById.get(0))
     }
 }
