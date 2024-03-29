@@ -1,253 +1,235 @@
 package t3
 
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.Assertions.*
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.collections.shouldNotContain
+import io.kotest.matchers.equals.shouldBeEqual
+import io.kotest.matchers.equals.shouldNotBeEqual
+import io.kotest.matchers.sequences.shouldHaveSize
+import io.kotest.matchers.sequences.shouldNotContain
+import io.kotest.matchers.shouldBe
 
-class CoordinateTest {
-    @Test
-    fun `fails when row or column out of range`() {
-        assertThrows(
-            IllegalArgumentException::class.java
-        ) { Coordinate(-1, 0) }
-        assertThrows(
-            IllegalArgumentException::class.java
-        ) { Coordinate(4, 0) }
-        assertThrows(
-            IllegalArgumentException::class.java
-        ) { Coordinate(0, -1) }
-        assertThrows(
-            IllegalArgumentException::class.java
-        ) { Coordinate(0, 4) }
+class CoordinateTest : FunSpec({
+    test("fails when row or column out of range") {
+        shouldThrow<IllegalArgumentException> {
+            Coordinate(-1, 0)
+        }
+        shouldThrow<IllegalArgumentException> {
+            Coordinate(4, 0)
+        }
+        shouldThrow<IllegalArgumentException> {
+            Coordinate(0, -1)
+        }
+        shouldThrow<IllegalArgumentException> {
+            Coordinate(0, -1)
+        }
+        shouldThrow<IllegalArgumentException> {
+            Coordinate(0, 4)
+        }
     }
 
-    @Test
-    fun `space ID conversion fails when out of range`() {
-        assertThrows(
-            IllegalArgumentException::class.java
-        ) { Coordinate.fromSpaceId(0) }
-        assertThrows(
-            IllegalArgumentException::class.java
-        ) { Coordinate.fromSpaceId(-5) }
-        assertThrows(
-            IllegalArgumentException::class.java
-        ) { Coordinate.fromSpaceId(10) }
+    test("space ID conversion fails when out of range") {
+        shouldThrow<IllegalArgumentException> {
+            Coordinate.fromSpaceId(0)
+        }
+        shouldThrow<IllegalArgumentException> {
+            Coordinate.fromSpaceId(-5)
+        }
+        shouldThrow<IllegalArgumentException> {
+            Coordinate.fromSpaceId(10)
+        }
     }
 
-    @Test
-    fun `equivalent coordinates compare as equal`() {
-        assertTrue(Coordinate(0, 1) == Coordinate(0, 1))
-        assertTrue(Coordinate(1, 2) == Coordinate(1, 2))
+    test("equivalent coordinates compare as equal") {
+        Coordinate(0, 1) shouldBeEqual Coordinate(0, 1)
+        Coordinate(1, 2) shouldBeEqual Coordinate(1, 2)
     }
 
-    @Test
-    fun `non-equivalent coordinates do not compare as equal`() {
-        assertFalse(Coordinate(0, 1) == Coordinate(1, 2))
-        assertFalse(Coordinate(1, 2) == Coordinate(2, 1))
+    test("non-equivalent coordinates do not compare as equal") {
+        Coordinate(0, 1) shouldNotBeEqual Coordinate(1, 2)
+        Coordinate(1, 2) shouldNotBeEqual Coordinate(2, 1)
     }
-}
+})
 
-class BoardTest {
-    @Test
-    fun `prints empty layout`() {
+class BoardTest : FunSpec({
+    test("prints empty layout") {
         val board = Board()
-        assertEquals(
-            """
-                1|2|3
-                -----
-                4|5|6
-                -----
-                7|8|9
-            """.trimIndent(),
-            board.getEmptyLayout()
-        )
+        board.getEmptyLayout() shouldBe """
+            1|2|3
+            -----
+            4|5|6
+            -----
+            7|8|9
+        """.trimIndent()
     }
 
-    @Test
-    fun `prints game layout`() {
+    test("prints game layout") {
         val board = Board()
         board.play(Player.USER, 2)
         board.play(Player.COMPUTER, 5)
         board.play(Player.USER, 9)
-        assertEquals(
-            """
-                 |X| 
-                -----
-                 |O| 
-                -----
-                 | |X
-            """.trimIndent(),
-            board.toString()
-        )
+        board.toString() shouldBe """
+             |X| 
+            -----
+             |O| 
+            -----
+             | |X
+        """.trimIndent()
     }
 
-    @Test
-    fun `finds win in row`() {
+    test("finds win in row") {
         val board = Board()
-        assertFalse(board.play(Player.USER, Coordinate(0, 0)))
-        assertFalse(board.play(Player.USER, Coordinate(0, 2)))
-        assertTrue(board.play(Player.USER, Coordinate(0, 1)))
-        assertEquals(Player.USER, board.winner)
+        board.play(Player.USER, Coordinate(0, 0)) shouldBe false
+        board.play(Player.USER, Coordinate(0, 2)) shouldBe false
+        board.play(Player.USER, Coordinate(0, 1)) shouldBe true
+        board.winner shouldBe Player.USER
     }
 
-    @Test
-    fun `finds win in column`() {
+    test("finds win in column") {
         val board = Board()
-        assertFalse(board.play(Player.COMPUTER, Coordinate(0, 0)))
-        assertFalse(board.play(Player.COMPUTER, Coordinate(1, 0)))
-        assertTrue(board.play(Player.COMPUTER, Coordinate(2, 0)))
-        assertEquals(Player.COMPUTER, board.winner)
+        board.play(Player.COMPUTER, Coordinate(0, 0)) shouldBe false
+        board.play(Player.COMPUTER, Coordinate(1, 0)) shouldBe false
+        board.play(Player.COMPUTER, Coordinate(2, 0)) shouldBe true
+        board.winner shouldBe Player.COMPUTER
     }
 
-    @Test
-    fun `finds win in diagonal from top`() {
+    test("finds win in diagonal from top") {
         val board = Board()
-        assertFalse(board.play(Player.USER, Coordinate(0, 0)))
-        assertFalse(board.play(Player.USER, Coordinate(2, 2)))
-        assertTrue(board.play(Player.USER, Coordinate(1, 1)))
-        assertEquals(Player.USER, board.winner)
+        board.play(Player.USER, Coordinate(0, 0)) shouldBe false
+        board.play(Player.USER, Coordinate(2, 2)) shouldBe false
+        board.play(Player.USER, Coordinate(1, 1)) shouldBe true
+        board.winner shouldBe Player.USER
     }
 
-    @Test
-    fun `finds win in diagonal from bottom`() {
+    test("finds win in diagonal from bottom") {
         val board = Board()
-        assertFalse(board.play(Player.COMPUTER, Coordinate(0, 2)))
-        assertFalse(board.play(Player.COMPUTER, Coordinate(1, 1)))
-        assertTrue(board.play(Player.COMPUTER, Coordinate(2, 0)))
-        assertEquals(Player.COMPUTER, board.winner)
+        board.play(Player.COMPUTER, Coordinate(0, 2)) shouldBe false
+        board.play(Player.COMPUTER, Coordinate(1, 1)) shouldBe false
+        board.play(Player.COMPUTER, Coordinate(2, 0)) shouldBe true
+        board.winner shouldBe Player.COMPUTER
     }
 
-    @Test
-    fun `does not find win in row when players mixed`() {
+    test("does not find win in row when players mixed") {
         val board = Board()
-        assertFalse(board.play(Player.COMPUTER, Coordinate(0, 0)))
-        assertFalse(board.play(Player.USER, Coordinate(1, 0)))
-        assertFalse(board.play(Player.COMPUTER, Coordinate(2, 0)))
-        assertEquals(Player.NONE, board.winner)
+        board.play(Player.COMPUTER, Coordinate(0, 0)) shouldBe false
+        board.play(Player.USER, Coordinate(1, 0)) shouldBe false
+        board.play(Player.COMPUTER, Coordinate(2, 0)) shouldBe false
+        board.winner shouldBe Player.NONE
     }
 
-    @Test
-    fun `does not find win in column when players mixed`() {
+    test("does not find win in column when players mixed") {
         val board = Board()
-        assertFalse(board.play(Player.USER, Coordinate(0, 1)))
-        assertFalse(board.play(Player.USER, Coordinate(1, 1)))
-        assertFalse(board.play(Player.COMPUTER, Coordinate(2, 1)))
-        assertEquals(Player.NONE, board.winner)
+        board.play(Player.USER, Coordinate(0, 1)) shouldBe false
+        board.play(Player.USER, Coordinate(1, 1)) shouldBe false
+        board.play(Player.COMPUTER, Coordinate(2, 1)) shouldBe false
+        board.winner shouldBe Player.NONE
     }
 
-    @Test
-    fun `does not find win in diagonal from top when players mixed`() {
+    test("does not find win in diagonal from top when players mixed") {
         val board = Board()
-        assertFalse(board.play(Player.USER, Coordinate(0, 0)))
-        assertFalse(board.play(Player.COMPUTER, Coordinate(2, 2)))
-        assertFalse(board.play(Player.USER, Coordinate(1, 1)))
-        assertEquals(Player.NONE, board.winner)
+        board.play(Player.USER, Coordinate(0, 0)) shouldBe false
+        board.play(Player.COMPUTER, Coordinate(2, 2)) shouldBe false
+        board.play(Player.USER, Coordinate(1, 1)) shouldBe false
+        board.winner shouldBe Player.NONE
     }
 
-    @Test
-    fun `does not find win in diagonal from bottom when players mixed`() {
+    test("does not find win in diagonal from bottom when players mixed") {
         val board = Board()
-        assertFalse(board.play(Player.COMPUTER, Coordinate(0, 2)))
-        assertFalse(board.play(Player.COMPUTER, Coordinate(1, 1)))
-        assertFalse(board.play(Player.USER, Coordinate(2, 0)))
-        assertEquals(Player.NONE, board.winner)
+        board.play(Player.COMPUTER, Coordinate(0, 2)) shouldBe false
+        board.play(Player.COMPUTER, Coordinate(1, 1)) shouldBe false
+        board.play(Player.USER, Coordinate(2, 0)) shouldBe false
+        board.winner shouldBe Player.NONE
     }
 
-    @Test
-    fun `finds draw`() {
+    test("finds draw") {
         val board = Board()
-        assertFalse(board.play(Player.USER, Coordinate(0, 0)))
-        assertFalse(board.play(Player.COMPUTER, Coordinate(0, 1)))
-        assertFalse(board.play(Player.USER, Coordinate(1, 2)))
-        assertFalse(board.play(Player.COMPUTER, Coordinate(2, 2)))
-        assertFalse(board.play(Player.USER, Coordinate(2, 1)))
-        assertFalse(board.play(Player.COMPUTER, Coordinate(1, 1)))
-        assertFalse(board.play(Player.USER, Coordinate(0, 2)))
-        assertFalse(board.play(Player.COMPUTER, Coordinate(2, 0)))
-        assertFalse(board.play(Player.USER, Coordinate(1, 0)))
-        assertFalse(board.hasUnplacedSpaces())
+        board.play(Player.USER, Coordinate(0, 0)) shouldBe false
+        board.play(Player.COMPUTER, Coordinate(0, 1)) shouldBe false
+        board.play(Player.USER, Coordinate(1, 2)) shouldBe false
+        board.play(Player.COMPUTER, Coordinate(2, 2)) shouldBe false
+        board.play(Player.USER, Coordinate(2, 1)) shouldBe false
+        board.play(Player.COMPUTER, Coordinate(1, 1)) shouldBe false
+        board.play(Player.USER, Coordinate(0, 2)) shouldBe false
+        board.play(Player.COMPUTER, Coordinate(2, 0)) shouldBe false
+        board.play(Player.USER, Coordinate(1, 0)) shouldBe false
+        board.hasUnplacedSpaces() shouldBe false
     }
 
-    @Test
-    fun `throws exception on attempt to replay space`() {
+    test("throws exception on attempt to replay space") {
         val board = Board()
         board.play(Player.COMPUTER, Coordinate(0, 1))
-        assertThrows(
-            UnplayableSpaceException::class.java
-        ) { board.play(Player.USER, Coordinate(0, 1)) }
-    }
-
-    @Test
-    fun `finds unplayed spaces`() {
-        val board = Board()
-        var unplayedSpacesById: Sequence<Int>
-        assertEquals(9, board.getUnplayedSpaces().count())
-        board.play(Player.COMPUTER, 1)
-        unplayedSpacesById = board.getUnplayedSpaces().map { it.id }
-        assertEquals(8, unplayedSpacesById.count())
-        assertFalse(unplayedSpacesById.contains(1))
-        board.play(Player.USER, 8)
-        unplayedSpacesById = board.getUnplayedSpaces().map { it.id }
-        assertEquals(7, unplayedSpacesById.count())
-        assertFalse(unplayedSpacesById.contains(1))
-        assertFalse(unplayedSpacesById.contains(8))
-    }
-
-    @Test
-    fun `spaces playable by ID`() {
-        val board = Board()
-        board.play(Player.COMPUTER, 2)
-        assertThrows(UnplayableSpaceException::class.java) {
+        shouldThrow<UnplayableSpaceException> {
             board.play(Player.USER, Coordinate(0, 1))
         }
     }
 
-    @Test
-    fun `canPlay returns true for unplayed space`() {
+    test("finds unplayed spaces") {
+        val board = Board()
+        var unplayedSpacesById: Sequence<Int>
+        board.getUnplayedSpaces() shouldHaveSize 9
+        board.play(Player.COMPUTER, 1)
+        unplayedSpacesById = board.getUnplayedSpaces().map { it.id }
+        unplayedSpacesById shouldHaveSize 8
+        unplayedSpacesById shouldNotContain  1
+        board.play(Player.USER, 8)
+        unplayedSpacesById = board.getUnplayedSpaces().map { it.id }
+        unplayedSpacesById shouldHaveSize 7
+        unplayedSpacesById shouldNotContain 1
+        unplayedSpacesById shouldNotContain 8
+    }
+
+    test("spaces playable by ID") {
+        val board = Board()
+        board.play(Player.COMPUTER, 2)
+        shouldThrow<UnplayableSpaceException> {
+            board.play(Player.USER, Coordinate(0, 1))
+        }
+    }
+
+    test("canPlay returns true for unplayed space") {
         val board = Board()
         board.play(Player.USER, 4)
-        assertTrue(board.canPlay(Coordinate(0, 0)))
+        board.canPlay(Coordinate(0, 0)) shouldBe true
     }
 
-    @Test
-    fun `canPlay returns false for played space`() {
+    test("canPlay returns false for played space") {
         val board = Board()
         board.play(Player.USER, 4)
-        assertFalse(board.canPlay(Coordinate(1, 0)))
+        board.canPlay(Coordinate(1, 0)) shouldBe false
     }
 
-    @Test
-    fun `all win possibilities found on empty board`() {
-        assertEquals(8, Board().getWaysToWin(Player.USER).count())
+    test("all win possibilities found on empty board") {
+        Board().getWaysToWin(Player.USER) shouldHaveSize 8
     }
 
-    @Test
-    fun `win possibilities prioritized when board has one play`() {
+    test("win possibilities prioritized when board has one play") {
         val board = Board()
         board.play(Player.USER, 1)
         val waysToWinById = board.getWaysToWin(Player.USER).map {
             it.map { it.id }
         }
-        assertEquals(8, waysToWinById.count())
-        assertEquals(listOf(2, 3), waysToWinById.get(0))
-        assertEquals(listOf(4, 7), waysToWinById.get(1))
+        waysToWinById shouldHaveSize 8
+        waysToWinById.get(0) shouldBe listOf(2, 3)
+        waysToWinById.get(1) shouldBe listOf(4, 7)
     }
 
-    @Test
-    fun `appropriate win possibilities excluded when board has plays from both players`() {
+    test("appropriate win possibilities excluded when board has plays from both players") {
         val board = Board()
         board.play(Player.USER, 1)
         board.play(Player.COMPUTER, 3)
         var waysToWinById = board.getWaysToWin(Player.USER).map {
             it.map { it.id }
         }
-        assertEquals(5, waysToWinById.count())
-        assertFalse(waysToWinById.contains(listOf(2, 3)))
-        assertEquals(listOf(4, 7), waysToWinById.get(0))
+        waysToWinById shouldHaveSize 5
+        waysToWinById shouldNotContain listOf(2, 3)
+        waysToWinById.get(0) shouldBe listOf(4, 7)
         waysToWinById = board.getWaysToWin(Player.COMPUTER).map {
             it.map { it.id }
         }
-        assertEquals(5, waysToWinById.count())
-        assertFalse(waysToWinById.contains(listOf(1, 2)))
-        assertEquals(listOf(6, 9), waysToWinById.get(0))
+        waysToWinById shouldHaveSize 5
+        waysToWinById shouldNotContain listOf(1, 2)
+        waysToWinById.get(0) shouldBe listOf(6, 9)
     }
-}
+})
