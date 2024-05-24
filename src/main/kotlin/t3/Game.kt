@@ -1,31 +1,37 @@
 package t3
 
-enum class ComputerStrategy {
-    RANDOM, ALGORITHM
-}
+import t3.io.OutputHandler
+import t3.io.StdoutHandler
+import t3.io.UserInputProvider
+import t3.strategy.AlgorithmicStrategyProvider
+import t3.strategy.StrategyProvider
 
-class Game(val computerStrategy: ComputerStrategy) {
+class Game(
+    private val inputProvider: UserInputProvider = UserInputProvider(),
+    private val outputHandler: OutputHandler = StdoutHandler(),
+    private val strategyProvider: StrategyProvider = AlgorithmicStrategyProvider()
+) {
     private var board = Board()
 
     private fun printWelcomeMessage() {
-        println(
+        outputHandler.writeln(
             "Welcome to Tic-Tac-Toe. Let's find out whether YOU are a bad enough " +
             "dude or dudette or non-binary dudx to beat the almighty computer.\n"
         )
-        println(
+        outputHandler.writeln(
             "Make your play by entering the ID of the space you want to play in. " +
             "Spaces are numbered 1 to 9, like this:\n"
         )
-        println(board.getEmptyLayout())
-        println("\nLet's gooooooo!!!!!!")
+        outputHandler.writeln(board.getEmptyLayout())
+        outputHandler.writeln("\nLet's gooooooo!!!!!!")
     }
 
     private fun promptForPlay() {
-        print("What's your move? ")
+        outputHandler.write("What's your move? ")
     }
 
     private fun printBoardAndPrompt() {
-        println("${board}\n")
+        outputHandler.writeln("${board}\n")
         promptForPlay()
     }
 
@@ -34,50 +40,38 @@ class Game(val computerStrategy: ComputerStrategy) {
     }
 
     private fun makeComputerPlay(): Boolean {
-        val waysToWin = board.getWaysToWin(Player.COMPUTER)
-        if (computerStrategy == ComputerStrategy.RANDOM || waysToWin.count() == 0) {
-            val unplayedSpaces = board.getUnplayedSpaces()
-            if (unplayedSpaces.count() == 0) {
-                return false
-            }
-            return board.play(Player.COMPUTER, unplayedSpaces.shuffled().first().id)
+        val spaceId = strategyProvider.getSpace(board)
+        if (spaceId != null) {
+            return board.play(Player.COMPUTER, spaceId)
         }
-        val opponentWaysToWin = board.getWaysToWin(Player.USER)
-        val shortestWinPath = waysToWin.get(0).count()
-        val cohortWinPaths = waysToWin.filter { it.count() == shortestWinPath }
-        var intersection: Set<Space>
-        for (winPath in cohortWinPaths) {
-            for (opponentWinPath in opponentWaysToWin) {
-                intersection = winPath.intersect(opponentWinPath)
-                if (intersection.any()) {
-                    return board.play(Player.COMPUTER, intersection.first().id)
-                }
-            }
-        }
-        return board.play(Player.COMPUTER, waysToWin.get(0).get(0).id)
+        return false
     }
 
     private fun promptForReplay() {
-        print("Play again (y/n)? ")
+        outputHandler.write("Play again (y/n)? ")
     }
 
     private fun replayRequested(): Boolean {
         promptForReplay()
-        return getReplayChoice()
+        if (getReplayChoice()) {
+            board = Board()
+            return true
+        }
+        return false
     }
 
     private fun getSpaceChoice(): Int {
         while (true) {
-            val userInput = readlnOrNull()
+            val userInput = inputProvider.get()
             if (userInput != null && userInput.length > 0) {
                 try {
                     val spaceId = userInput.toInt()
                     if (board.canPlay(spaceId)) {
                         return spaceId
                     }
-                    print("Space ${spaceId} has already been played; try again. ")
+                    outputHandler.write("Space ${spaceId} has already been played; try again. ")
                 } catch (_: Throwable) {
-                    print("${userInput} isn't a playable space; try again. ")
+                    outputHandler.write("${userInput} isn't a playable space; try again. ")
                 }
             }
             promptForPlay()
@@ -86,33 +80,53 @@ class Game(val computerStrategy: ComputerStrategy) {
 
     private fun getReplayChoice(): Boolean {
         while (true) {
-            val userInput = readlnOrNull()
+            val userInput = inputProvider.get()
             if (userInput == "y") {
                 return true
             }
             if (userInput == "n") {
                 return false
             }
-            print("Invalid input; try again. ")
+            outputHandler.write("Invalid input; try again. ")
             promptForReplay()
         }
     }
 
+    fun playRound(): Player? {
+        if (board.hasUnplacedSpaces() && makeUserPlay()) {
+            return Player.USER
+        }
+        if (board.hasUnplacedSpaces() && makeComputerPlay()) {
+            return Player.COMPUTER
+        }
+        if (!board.hasUnplacedSpaces()) {
+            return Player.NONE
+        }
+        return null
+    }
+
     fun run() {
         printWelcomeMessage()
+        var winner: Player?
         do {
-            // Reset board if this is a replay
-            if (board.winner != Player.NONE) {
-                board = Board()
-            }
-            while (board.winner == Player.NONE && board.hasUnplacedSpaces()) {
+            winner = null
+            while (winner == null) {
                 printBoardAndPrompt()
-                if (makeUserPlay()) {
-                    print("${board}\n\nYou did it! I'm so proud of you. ")
-                } else if (makeComputerPlay()) {
-                    print("${board}\n\nBad news, computer wins. How could you let this happen? ")
-                } else if (!board.hasUnplacedSpaces()) {
-                    print("${board}\n\nIt's a draw! ")
+                winner = playRound()
+                if (winner != null) {
+                    when (winner) {
+                        Player.USER -> outputHandler.write(
+                            "${board}\n\nYou did it! I'm so proud of you. "
+                        )
+
+                        Player.COMPUTER -> outputHandler.write(
+                            "${board}\n\nBad news, computer wins. How could you let this happen? "
+                        )
+
+                        Player.NONE -> outputHandler.write(
+                            "${board}\n\nIt's a draw! "
+                        )
+                    }
                 }
             }
         } while (replayRequested())
