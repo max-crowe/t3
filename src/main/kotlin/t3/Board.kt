@@ -1,5 +1,9 @@
 package t3
 
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+
 class UnplayableSpaceException(message: String?) : IllegalArgumentException(message)
 class UnwinnablePossibilityException(message: String?): RuntimeException(message)
 
@@ -57,19 +61,22 @@ class Coordinate(val row: Int, val column: Int) {
     }
 }
 
-class Space(val id: Int) {
-    var player = Player.NONE
-
+@Serializable
+class Space(val id: Int, var player: Player = Player.NONE) {
     override fun toString(): String {
         return player.toString()
     }
 }
 
-class Board {
-    val spaces = generateSpaces()
+@Serializable
+class Board(val spaces: List<List<Space>> = generateSpaces()) {
     var winner = Player.NONE
         private set
-    private var unplayedSpaceCount = 9
+    private var unplayedSpaceCount = getUnplayedSpaces().count()
+
+    companion object {
+        fun fromJson(serialized: String) = Json.decodeFromString<Board>(serialized)
+    }
 
     override fun toString(): String {
         return getReadableLayout(spaces)
@@ -173,9 +180,9 @@ class Board {
         }
     }
 
-    fun hasUnplacedSpaces(): Boolean {
-        return unplayedSpaceCount > 0
-    }
+    fun hasUnplayedSpaces() = unplayedSpaceCount > 0
+
+    fun hasPlayedSpaces() = unplayedSpaceCount < 9
 
     fun getWaysToWin(player: Player): List<List<Space>> {
         val waysToWin = mutableListOf<List<Space>>()
@@ -236,4 +243,6 @@ class Board {
         waysToWin.sortBy { it.count() }
         return waysToWin
     }
+
+    fun toJson() = Json.encodeToString(this)
 }

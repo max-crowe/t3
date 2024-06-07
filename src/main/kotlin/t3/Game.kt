@@ -1,38 +1,65 @@
 package t3
 
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import t3.io.OutputHandler
 import t3.io.StdoutHandler
 import t3.io.UserInputProvider
 import t3.strategy.AlgorithmicStrategyProvider
 import t3.strategy.StrategyProvider
 
+@Serializable
 class Game(
-    private val inputProvider: UserInputProvider = UserInputProvider(),
-    private val outputHandler: OutputHandler = StdoutHandler(),
-    private val strategyProvider: StrategyProvider = AlgorithmicStrategyProvider()
+    private var board: Board = Board(),
+    @Transient private var inputProvider: UserInputProvider = UserInputProvider(),
+    @Transient private var outputHandler: OutputHandler = StdoutHandler(),
+    @Transient private var strategyProvider: StrategyProvider = AlgorithmicStrategyProvider()
 ) {
-    private var board = Board()
+    companion object {
+        const val INTRO_MESSAGE_LINE_1 =
+            "Welcome to Tic-Tac-Toe. Let's find out whether YOU are a bad enough " +
+            "dude or dudette or non-binary dudx to beat the almighty computer."
+        const val INTRO_MESSAGE_LINE_2 =
+            "Make your play by entering the ID of the space you want to play in. " +
+            "dude or dudette or non-binary dudx to beat the almighty computer."
+        const val INTRO_MESSAGE_LINE_3 = "Let's gooooooo!!!!!!"
+        const val PLAY_PROMPT = "What's your move?"
+        const val REPLAY_PROMPT = "Play again (y/n)?"
+        const val INVALID_INPUT_PROMPT = "Invalid input; try again."
+        const val USER_WINS_MESSAGE =  "You did it! I'm so proud of you."
+        const val COMPUTER_WINS_MESSAGE = "Bad news, computer wins. How could you let this happen?"
+        const val DRAW_MESSAGE = "It's a draw!"
+        fun fromJson(
+            serialized: String,
+            inputProvider: UserInputProvider? = null,
+            outputHandler: OutputHandler? = null,
+            strategyProvider: StrategyProvider? = null
+        ): Game {
+            val game = Json.decodeFromString<Game>(serialized)
+            if (inputProvider != null) {
+                game.inputProvider = inputProvider
+            }
+            if (outputHandler != null) {
+                game.outputHandler = outputHandler
+            }
+            if (strategyProvider != null) {
+                game.strategyProvider = strategyProvider
+            }
+            return game
+        }
+    }
 
     private fun printWelcomeMessage() {
-        outputHandler.writeln(
-            "Welcome to Tic-Tac-Toe. Let's find out whether YOU are a bad enough " +
-            "dude or dudette or non-binary dudx to beat the almighty computer.\n"
-        )
-        outputHandler.writeln(
-            "Make your play by entering the ID of the space you want to play in. " +
-            "Spaces are numbered 1 to 9, like this:\n"
-        )
-        outputHandler.writeln(board.getEmptyLayout())
-        outputHandler.writeln("\nLet's gooooooo!!!!!!")
+        outputHandler.writeln("${INTRO_MESSAGE_LINE_1}\n")
+        outputHandler.writeln("${INTRO_MESSAGE_LINE_2}\n")
+        outputHandler.writeln("${board.getEmptyLayout()}\n")
+        outputHandler.writeln(INTRO_MESSAGE_LINE_3)
     }
 
     private fun promptForPlay() {
-        outputHandler.write("What's your move? ")
-    }
-
-    private fun printBoardAndPrompt() {
-        outputHandler.writeln("${board}\n")
-        promptForPlay()
+        outputHandler.write("${PLAY_PROMPT} ")
     }
 
     private fun makeUserPlay(): Boolean {
@@ -48,7 +75,7 @@ class Game(
     }
 
     private fun promptForReplay() {
-        outputHandler.write("Play again (y/n)? ")
+        outputHandler.write("${REPLAY_PROMPT} ")
     }
 
     private fun replayRequested(): Boolean {
@@ -87,48 +114,53 @@ class Game(
             if (userInput == "n") {
                 return false
             }
-            outputHandler.write("Invalid input; try again. ")
+            outputHandler.write("${INVALID_INPUT_PROMPT} ")
             promptForReplay()
         }
     }
 
     fun playRound(): Player? {
-        if (board.hasUnplacedSpaces() && makeUserPlay()) {
+        if (board.hasUnplayedSpaces() && makeUserPlay()) {
             return Player.USER
         }
-        if (board.hasUnplacedSpaces() && makeComputerPlay()) {
+        if (board.hasUnplayedSpaces() && makeComputerPlay()) {
             return Player.COMPUTER
         }
-        if (!board.hasUnplacedSpaces()) {
+        if (!board.hasUnplayedSpaces()) {
             return Player.NONE
         }
         return null
     }
 
     fun run() {
-        printWelcomeMessage()
+        if (!board.hasPlayedSpaces()) {
+            printWelcomeMessage()
+        }
         var winner: Player?
         do {
             winner = null
             while (winner == null) {
-                printBoardAndPrompt()
+                outputHandler.writeln("${board}\n")
+                promptForPlay()
                 winner = playRound()
                 if (winner != null) {
                     when (winner) {
                         Player.USER -> outputHandler.write(
-                            "${board}\n\nYou did it! I'm so proud of you. "
+                            "${board}\n\n${USER_WINS_MESSAGE} "
                         )
 
                         Player.COMPUTER -> outputHandler.write(
-                            "${board}\n\nBad news, computer wins. How could you let this happen? "
+                            "${board}\n\n${COMPUTER_WINS_MESSAGE} "
                         )
 
                         Player.NONE -> outputHandler.write(
-                            "${board}\n\nIt's a draw! "
+                            "${board}\n\n${DRAW_MESSAGE} "
                         )
                     }
                 }
             }
         } while (replayRequested())
     }
+
+    fun toJson() = Json.encodeToString(this)
 }

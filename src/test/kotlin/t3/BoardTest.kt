@@ -153,7 +153,7 @@ class BoardTest : FunSpec({
         board.play(Player.USER, Coordinate(0, 2)) shouldBe false
         board.play(Player.COMPUTER, Coordinate(2, 0)) shouldBe false
         board.play(Player.USER, Coordinate(1, 0)) shouldBe false
-        board.hasUnplacedSpaces() shouldBe false
+        board.hasUnplayedSpaces() shouldBe false
     }
 
     test("throws exception on attempt to replay space") {
@@ -230,5 +230,21 @@ class BoardTest : FunSpec({
         waysToWinById shouldHaveSize 5
         waysToWinById shouldNotContain listOf(1, 2)
         waysToWinById.get(0) shouldBe listOf(6, 9)
+    }
+
+    test("can serialize and deserialize") {
+        val board1 = Board()
+        board1.play(Player.USER, Coordinate(0, 0))
+        board1.play(Player.COMPUTER, Coordinate(0, 1))
+        board1.play(Player.USER, Coordinate(1, 2))
+        board1.play(Player.COMPUTER, Coordinate(2, 2))
+        board1.play(Player.USER, Coordinate(2, 1))
+        board1.play(Player.COMPUTER, Coordinate(1, 1))
+        board1.play(Player.USER, Coordinate(0, 2))
+        board1.play(Player.COMPUTER, Coordinate(2, 0))
+        board1.play(Player.USER, Coordinate(1, 0))
+        val board2 = Board.fromJson(board1.toJson())
+        board1.toString() shouldBe board2.toString()
+        board2.hasUnplayedSpaces() shouldBe false
     }
 })
