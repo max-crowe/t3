@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>T3: Tic-Tac-Toe with Kotlin and ktor</title>
+    <script>
+        const setupSocket = () => {
+            const socket = new WebSocket(`ws:/${new URL(window.location.href).host}/play`);
+            socket.onmessage = handleMessage;
+        };
+
+        const handleMessage = (event) => {
+            console.log(event.data);
+        };
+
+        window.addEventListener("load", setupSocket)
+    </script>
+</head>
+<body>
+
+</body>
+</html>

@@ -4,16 +4,18 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import t3.io.InputProvider
 import t3.io.OutputHandler
 import t3.io.StdoutHandler
-import t3.io.UserInputProvider
+import t3.io.StdinProvider
 import t3.strategy.AlgorithmicStrategyProvider
 import t3.strategy.StrategyProvider
 
 @Serializable
 class Game(
     private var board: Board = Board(),
-    @Transient private var inputProvider: UserInputProvider = UserInputProvider(),
+    private val context: Context = Context.TTY,
+    @Transient private var inputProvider: InputProvider = StdinProvider(),
     @Transient private var outputHandler: OutputHandler = StdoutHandler(),
     @Transient private var strategyProvider: StrategyProvider = AlgorithmicStrategyProvider()
 ) {
@@ -22,8 +24,7 @@ class Game(
             "Welcome to Tic-Tac-Toe. Let's find out whether YOU are a bad enough " +
             "dude or dudette or non-binary dudx to beat the almighty computer."
         const val INTRO_MESSAGE_LINE_2 =
-            "Make your play by entering the ID of the space you want to play in. " +
-            "dude or dudette or non-binary dudx to beat the almighty computer."
+            "Make your play by entering the ID of the space you want to play in."
         const val INTRO_MESSAGE_LINE_3 = "Let's gooooooo!!!!!!"
         const val PLAY_PROMPT = "What's your move?"
         const val REPLAY_PROMPT = "Play again (y/n)?"
@@ -31,9 +32,10 @@ class Game(
         const val USER_WINS_MESSAGE =  "You did it! I'm so proud of you."
         const val COMPUTER_WINS_MESSAGE = "Bad news, computer wins. How could you let this happen?"
         const val DRAW_MESSAGE = "It's a draw!"
+
         fun fromJson(
             serialized: String,
-            inputProvider: UserInputProvider? = null,
+            inputProvider: StdinProvider? = null,
             outputHandler: OutputHandler? = null,
             strategyProvider: StrategyProvider? = null
         ): Game {
@@ -53,8 +55,10 @@ class Game(
 
     private fun printWelcomeMessage() {
         outputHandler.writeln("${INTRO_MESSAGE_LINE_1}\n")
-        outputHandler.writeln("${INTRO_MESSAGE_LINE_2}\n")
-        outputHandler.writeln("${board.getEmptyLayout()}\n")
+        if (context != Context.SOCKET) {
+            outputHandler.writeln("${INTRO_MESSAGE_LINE_2}\n")
+            outputHandler.writeln("${board.getEmptyLayout()}\n")
+        }
         outputHandler.writeln(INTRO_MESSAGE_LINE_3)
     }
 
@@ -132,34 +136,44 @@ class Game(
         return null
     }
 
-    fun run() {
+    fun advance(): Boolean {
         if (!board.hasPlayedSpaces()) {
             printWelcomeMessage()
         }
-        var winner: Player?
-        do {
-            winner = null
-            while (winner == null) {
-                outputHandler.writeln("${board}\n")
-                promptForPlay()
-                winner = playRound()
-                if (winner != null) {
-                    when (winner) {
-                        Player.USER -> outputHandler.write(
-                            "${board}\n\n${USER_WINS_MESSAGE} "
-                        )
-
-                        Player.COMPUTER -> outputHandler.write(
-                            "${board}\n\n${COMPUTER_WINS_MESSAGE} "
-                        )
-
-                        Player.NONE -> outputHandler.write(
-                            "${board}\n\n${DRAW_MESSAGE} "
-                        )
-                    }
-                }
+        if (context != Context.SOCKET) {
+            outputHandler.writeln(board)
+        }
+        promptForPlay()
+        val winner = playRound()
+        if (winner != null) {
+            if (context != Context.SOCKET) {
+                outputHandler.writeln(board)
+                outputHandler.writeln("")
             }
-        } while (replayRequested())
+            when (winner) {
+                Player.USER -> outputHandler.write(
+                    "${USER_WINS_MESSAGE} "
+                )
+
+                Player.COMPUTER -> outputHandler.write(
+                    "${COMPUTER_WINS_MESSAGE} "
+                )
+
+                Player.NONE -> outputHandler.write(
+                    "${DRAW_MESSAGE} "
+                )
+            }
+            return replayRequested()
+        }
+        return true
+    }
+
+    fun run() {
+        while (true) {
+            if (!advance()) {
+                return
+            }
+        }
     }
 
     fun toJson() = Json.encodeToString(this)
