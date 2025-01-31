@@ -1,0 +1,5 @@
+package t3
+
+enum class GameState {
+    AWAITING_PLAY, AWAITING_PROMPT_RESPONSE, INITIATED, TERMINATED
+}

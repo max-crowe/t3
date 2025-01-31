@@ -3,20 +3,165 @@
 <head>
     <meta charset="UTF-8">
     <title>T3: Tic-Tac-Toe with Kotlin and ktor</title>
+    <style>
+        :root {
+            --border-color: #1a8a25;
+            --text-color: #f7f7f7;
+            --cell-length: 100px;
+        }
+
+        body {
+            background-color: #454444;
+            color: var(--text-color);
+            font-family: "Courier New", sans-serif;
+            font-size: 24px;
+        }
+
+        #game {
+            font-family: "Arial", sans-serif;
+            font-size: 90px;
+            margin: 50px 0;
+        }
+
+        .row {
+            align-items: center;
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+        }
+
+        .row:first-child .space{
+            border-top: none;
+        }
+
+        .row:last-child .space {
+            border-bottom: none;
+        }
+
+        .space {
+            border-bottom: 1px solid var(--border-color);
+            border-left: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            border-top: 1px solid var(--border-color);
+            cursor: pointer;
+            display: flex;
+            height: var(--cell-length);
+            justify-content: center;
+            width: var(--cell-length);
+        }
+
+        .space.played {
+            cursor: not-allowed;
+        }
+
+        .space:first-child {
+            border-left: none;
+        }
+
+        .space:last-child {
+            border-right: none;
+        }
+
+        #messages {
+            width: 95%;
+            margin: 0 auto;
+        }
+    </style>
     <script>
-        const setupSocket = () => {
+        const makeSpan = contents => {
+            const span = document.createElement("span");
+            span.appendChild(document.createTextNode(contents));
+            return span;
+        };
+
+        window.addEventListener("load", () => {
             const socket = new WebSocket(`ws:/${new URL(window.location.href).host}/play`);
-            socket.onmessage = handleMessage;
-        };
 
-        const handleMessage = (event) => {
-            console.log(event.data);
-        };
+            const keyPressHandler = event => {
+                socket.send(JSON.stringify({
+                    text: event.key
+                }))
+            };
 
-        window.addEventListener("load", setupSocket)
+            socket.onmessage = event => {
+                const message = JSON.parse(event.data);
+                renderMessage(message.text);
+                renderBoard(message.game.board);
+                if (message.state === "AWAITING_PROMPT_RESPONSE") {
+                    window.addEventListener("keypress", keyPressHandler);
+                } else {
+                    window.removeEventListener("keypress", keyPressHandler);
+                }
+            };
+
+            socket.onclose = () => renderMessage("Fun's over. Refresh page to play again.");
+
+            const spaces = [];
+            document.querySelectorAll(".space").forEach(spaceElement => {
+                spaces.push(spaceElement);
+                spaceElement.addEventListener("click", () => {
+                    if (!spaceElement.classList.contains("played")) {
+                        socket.send(JSON.stringify({
+                            text: spaceElement.getAttribute("data-spaceid")
+                        }));
+                    }
+                });
+            });
+
+            const messageContainer = document.getElementById("messages");
+
+            const renderBoard = (board) => {
+                board.spaces.forEach(row => {
+                    row.forEach(space => {
+                        const spaceElement = spaces[space.id - 1];
+                        if (space.player === "USER") {
+                            spaceElement.classList.add("played");
+                            spaceElement.replaceChildren(
+                                makeSpan("X")
+                            );
+                        } else if (space.player === "COMPUTER") {
+                            spaceElement.classList.add("played");
+                            spaceElement.replaceChildren(
+                                makeSpan("O")
+                            );
+                        } else {
+                            spaceElement.classList.remove("played");
+                            spaceElement.replaceChildren("");
+                        }
+                    });
+                });
+            };
+
+            const renderMessage = message => {
+                const paragraphs = [];
+                (message ?? "").trim().split("\n").forEach(line => {
+                    const paragraph = document.createElement("p");
+                    paragraph.appendChild(document.createTextNode(line));
+                    paragraphs.push(paragraph)
+                });
+                messageContainer.replaceChildren(...paragraphs);
+            };
+        });
     </script>
 </head>
 <body>
-
+    <div id="game">
+        <div class="row">
+            <div class="space" data-spaceid="1"></div>
+            <div class="space" data-spaceid="2"></div>
+            <div class="space" data-spaceid="3"></div>
+        </div>
+        <div class="row">
+            <div class="space" data-spaceid="4"></div>
+            <div class="space" data-spaceid="5"></div>
+            <div class="space" data-spaceid="6"></div>
+        </div>
+        <div class="row">
+            <div class="space" data-spaceid="7"></div>
+            <div class="space" data-spaceid="8"></div>
+            <div class="space" data-spaceid="9"></div>
+        </div>
+    </div>
+    <div id="messages"></div>
 </body>
 </html>

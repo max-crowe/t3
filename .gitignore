@@ -33,3 +33,6 @@ bin/
 ### Build ###
 build/
 .gradle
+
+### Etc ###
+.kotlin

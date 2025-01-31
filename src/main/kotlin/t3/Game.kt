@@ -1,5 +1,6 @@
 package t3
 
+import io.ktor.util.logging.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import kotlinx.serialization.encodeToString
@@ -11,6 +12,12 @@ import t3.io.StdinProvider
 import t3.strategy.AlgorithmicStrategyProvider
 import t3.strategy.StrategyProvider
 
+internal val LOGGER = KtorSimpleLogger("t3.Game")
+
+class EmptyInputException: Exception("Input was unexpectedly empty")
+class InvalidInputException(message: String): Exception(message)
+class SpaceOverflowException(message: String): Exception(message)
+
 @Serializable
 class Game(
     private var board: Board = Board(),
@@ -19,6 +26,8 @@ class Game(
     @Transient private var outputHandler: OutputHandler = StdoutHandler(),
     @Transient private var strategyProvider: StrategyProvider = AlgorithmicStrategyProvider()
 ) {
+    private var state: GameState = GameState.INITIATED
+
     companion object {
         const val INTRO_MESSAGE_LINE_1 =
             "Welcome to Tic-Tac-Toe. Let's find out whether YOU are a bad enough " +
@@ -55,19 +64,23 @@ class Game(
 
     private fun printWelcomeMessage() {
         outputHandler.writeln("${INTRO_MESSAGE_LINE_1}\n")
-        if (context != Context.SOCKET) {
+        if (context == Context.TTY) {
             outputHandler.writeln("${INTRO_MESSAGE_LINE_2}\n")
             outputHandler.writeln("${board.getEmptyLayout()}\n")
         }
         outputHandler.writeln(INTRO_MESSAGE_LINE_3)
     }
 
-    private fun promptForPlay() {
-        outputHandler.write("${PLAY_PROMPT} ")
+    private fun promptForPlay(printBoard: Boolean = true) {
+        if (printBoard && context == Context.TTY) {
+            outputHandler.writeln(board)
+        }
+        outputHandler.write("$PLAY_PROMPT ")
     }
 
     private fun makeUserPlay(): Boolean {
-        return board.play(Player.USER, getSpaceChoice())
+        val spaceId = getSpaceChoice()
+        return board.play(Player.USER, spaceId)
     }
 
     private fun makeComputerPlay(): Boolean {
@@ -79,98 +92,114 @@ class Game(
     }
 
     private fun promptForReplay() {
-        outputHandler.write("${REPLAY_PROMPT} ")
-    }
-
-    private fun replayRequested(): Boolean {
-        promptForReplay()
-        if (getReplayChoice()) {
-            board = Board()
-            return true
-        }
-        return false
+        outputHandler.write("$REPLAY_PROMPT ")
     }
 
     private fun getSpaceChoice(): Int {
-        while (true) {
-            val userInput = inputProvider.get()
-            if (userInput != null && userInput.length > 0) {
-                try {
-                    val spaceId = userInput.toInt()
-                    if (board.canPlay(spaceId)) {
-                        return spaceId
-                    }
-                    outputHandler.write("Space ${spaceId} has already been played; try again. ")
-                } catch (_: Throwable) {
-                    outputHandler.write("${userInput} isn't a playable space; try again. ")
-                }
-            }
-            promptForPlay()
+        val userInput = inputProvider.get()
+        if (userInput.isNullOrEmpty()) {
+            throw EmptyInputException()
         }
+        LOGGER.debug("Received user input: {}", userInput)
+        val spaceId: Int
+        try {
+            spaceId = userInput.toInt()
+        } catch (_: Throwable) {
+            throw InvalidInputException("$userInput isn't a playable space")
+        }
+        if (!board.canPlay(spaceId)) {
+            throw SpaceOverflowException("Space $spaceId has already been played")
+        }
+        return spaceId
     }
 
     private fun getReplayChoice(): Boolean {
-        while (true) {
-            val userInput = inputProvider.get()
-            if (userInput == "y") {
-                return true
-            }
-            if (userInput == "n") {
-                return false
-            }
-            outputHandler.write("${INVALID_INPUT_PROMPT} ")
-            promptForReplay()
+        val userInput = inputProvider.get()
+        if (userInput == "y") {
+            return true
         }
+        if (userInput == "n") {
+            return false
+        }
+        throw InvalidInputException("Invalid input: $userInput")
     }
 
     fun playRound(): Player? {
         if (board.hasUnplayedSpaces() && makeUserPlay()) {
             return Player.USER
-        }
-        if (board.hasUnplayedSpaces() && makeComputerPlay()) {
+        } else if (board.hasUnplayedSpaces() && makeComputerPlay()) {
             return Player.COMPUTER
-        }
-        if (!board.hasUnplayedSpaces()) {
+        } else if (!board.hasUnplayedSpaces()) {
             return Player.NONE
         }
         return null
     }
 
-    fun advance(): Boolean {
-        if (!board.hasPlayedSpaces()) {
-            printWelcomeMessage()
-        }
-        if (context != Context.SOCKET) {
-            outputHandler.writeln(board)
-        }
-        promptForPlay()
-        val winner = playRound()
-        if (winner != null) {
-            if (context != Context.SOCKET) {
-                outputHandler.writeln(board)
-                outputHandler.writeln("")
+    fun advance(): GameState {
+        when (state) {
+            GameState.AWAITING_PROMPT_RESPONSE -> {
+                try {
+                    if (getReplayChoice()) {
+                        board = Board()
+                        state = GameState.AWAITING_PLAY
+                        promptForPlay()
+                    } else {
+                        state = GameState.TERMINATED
+                    }
+                } catch (_: InvalidInputException) {
+                    outputHandler.write("$INVALID_INPUT_PROMPT ")
+                    promptForReplay()
+                }
             }
-            when (winner) {
-                Player.USER -> outputHandler.write(
-                    "${USER_WINS_MESSAGE} "
-                )
 
-                Player.COMPUTER -> outputHandler.write(
-                    "${COMPUTER_WINS_MESSAGE} "
-                )
+            GameState.AWAITING_PLAY -> {
+                try {
+                    val winner = playRound()
+                    if (winner == null) {
+                        promptForPlay()
+                    } else {
+                        if (context == Context.TTY) {
+                            outputHandler.writeln(board)
+                        }
+                        when (winner) {
+                            Player.USER -> outputHandler.write(
+                                "$USER_WINS_MESSAGE "
+                            )
 
-                Player.NONE -> outputHandler.write(
-                    "${DRAW_MESSAGE} "
-                )
+                            Player.COMPUTER -> outputHandler.write(
+                                "$COMPUTER_WINS_MESSAGE "
+                            )
+
+                            Player.NONE -> outputHandler.write(
+                                "$DRAW_MESSAGE "
+                            )
+                        }
+                        promptForReplay()
+                        state = GameState.AWAITING_PROMPT_RESPONSE
+                    }
+                } catch (e: SpaceOverflowException) {
+                    outputHandler.write("${e.message}; try again\n")
+                    promptForPlay(printBoard = false)
+                } catch (e: InvalidInputException) {
+                    outputHandler.write("${e.message}; try again\n")
+                    promptForPlay(printBoard = false)
+                }
             }
-            return replayRequested()
+
+            GameState.INITIATED -> {
+                printWelcomeMessage()
+                promptForPlay()
+                state = GameState.AWAITING_PLAY
+            }
+
+            GameState.TERMINATED -> {}
         }
-        return true
+        return state
     }
 
     fun run() {
         while (true) {
-            if (!advance()) {
+            if (advance() == GameState.TERMINATED) {
                 return
             }
         }

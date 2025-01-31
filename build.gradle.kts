@@ -5,6 +5,7 @@ val kotlinVersion: String by project
 val kotestVersion: String by project
 val kotlinxIOVersion: String by project
 val ktorVersion: String by project
+val logbackVersion: String by project
 val mockkVersion: String by project
 
 plugins {
@@ -26,6 +27,7 @@ repositories {
 }
 
 dependencies {
+    implementation("ch.qos.logback:logback-classic:$logbackVersion")
     implementation("io.ktor:ktor-server-core-jvm:$ktorVersion")
     implementation("io.ktor:ktor-server-host-common-jvm:$ktorVersion")
     implementation("io.ktor:ktor-server-content-negotiation-jvm:$ktorVersion")
